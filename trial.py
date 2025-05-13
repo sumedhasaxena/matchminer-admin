@@ -62,7 +62,7 @@ def post_trial(trial_data):
 
 def get_max_protocol_id_and_number():
     """
-    Sends an API request to get the max/highest protocil_id and protocol_number from the trials in matchminer system.
+    Sends an API request to get the max/highest protocol_id and protocol_number from the trials in matchminer system.
     
     Parameters:
     None
@@ -79,7 +79,8 @@ def get_max_protocol_id_and_number():
         headers['Authorization'] = f"Basic {config.TOKEN}"
         headers['Content-Type'] = f"application/json"
         
-        response = requests.get(endpoint_url, headers=headers, verify=False)
+        response = requests.get(endpoint_url, headers=headers, params = params, verify=False)
+        print(response.json())
         response.raise_for_status()
         data = json.loads(response.content)
         items = data["_items"]
@@ -91,6 +92,41 @@ def get_max_protocol_id_and_number():
         max_protocol_no = max_item["protocol_no"]
 
         return max_protocol_id, max_protocol_no
+    except requests.exceptions.HTTPError as err:
+        print(f"HTTP error occurred: {err}, {err.response.content}")  # Handle HTTP errors
+    except Exception as err:
+        print(f"Other error occurred: {err}")  # Handle other exceptions
+
+def get_all_nct_ids():
+    """
+    Sends an API request to get a list of NCTIds for all NCT trials in matchminer system.
+    
+    Parameters:
+    None
+
+    Returns:
+    List : NCT trial numbers
+    """
+    try:
+        nct_ids = []
+        projection = {"nct_id": 1}
+        params = {"projection": json.dumps(projection)}
+        endpoint_url = f'{urllib.parse.urljoin(f"{config.MATCHMINER_SERVER}", config.TRIAL_ENDPOINT)}'
+        
+        headers = {}
+        headers['Authorization'] = f"Basic {config.TOKEN}"
+        headers['Content-Type'] = f"application/json"
+        
+        response = requests.get(endpoint_url, headers=headers, params=params, verify=False)
+        response.raise_for_status()
+        data = json.loads(response.content)
+        items = data["_items"]
+
+        for trial in items:
+            nct_id = trial["nct_id"] 
+            if nct_id.startswith('NCT'): # means its a trial from clinicaltrials.gov
+                nct_ids.append(nct_id)
+        return nct_ids
     except requests.exceptions.HTTPError as err:
         print(f"HTTP error occurred: {err}, {err.response.content}")  # Handle HTTP errors
     except Exception as err:
@@ -158,10 +194,15 @@ def save_environment_variables(env_vars):
 
 def main(operation:str):
     if operation == 'insert':
-        insert_trials()
+        #insert_trials()
+        return None
     elif operation == 'get_max_pid_pno':
         max_protocol_id, max_protocol_no = get_max_protocol_id_and_number()
         print(max_protocol_id, max_protocol_no)
+    elif operation == "get_all_nct_ids":
+        all_nct_ids = get_all_nct_ids()
+        save_to_file(all_nct_ids, "all_nct_ids", 'json')
+        print("NCT Ids for all trials saved at all_nct_ids.json")
 
 def insert_trials():
     """
@@ -191,12 +232,17 @@ def insert_trials():
                 else:
                     logger.error(f"Error while posting trial {json.dumps(updated_data)}, response: {response}")
 
+def save_to_file(data: dict, file_name :str, format:str):        
+    if format == "json":
+        path_to_save_at = os.path.join(config.TRIAL_JSON_FOLDER, f'{file_name}.json')
+        with open(path_to_save_at, "w") as json_file: 
+            json.dump(data, json_file)
 
 if __name__ == "__main__":
     logger.add('update_matchminer.log', rotation = '1 MB', encoding="utf-8", format="{time} {level} - Line: {line} - {message}")
     
     parser = argparse.ArgumentParser(description="Operations: Insert trials or get max protocol_id/number from existing trials")
    
-    parser.add_argument("operation", choices=['insert', 'get_max_pid_pno'], help='Specify the operation to perform.')
+    parser.add_argument("operation", choices=['insert', 'get_max_pid_pno', 'get_all_nct_ids'], help='Specify the operation to perform.')
     args = parser.parse_args()
     main(args.operation)

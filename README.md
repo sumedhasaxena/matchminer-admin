@@ -3,6 +3,7 @@
 
 A repository for preparing and managing clinical and trial data that is Matchminer compliant.
 This system facilitates the ingestion, transformation, and uploading of data to the MatchMiner server, serving as a crucial administrative interface for clinical research data management.
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/sumedhasaxena/matchminer-admin)
 
 ## Getting Started
 

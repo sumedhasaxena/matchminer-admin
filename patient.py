@@ -37,6 +37,8 @@ def insert_all_patient_documents():
             if genomic_data is not None:
                 for item in genomic_data:
                     item["CLINICAL_ID"] = clinical_id
+                    item["SAMPLE_ID"] = clinical_data["SAMPLE_ID"]
+                logger.debug(f"Genomic document: {item}")
                 post_genomic_data(genomic_data, file)
 
 def load_json(file_path):

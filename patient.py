@@ -12,11 +12,13 @@ import requests
 import urllib.parse
 from loguru import logger
 import config
+import system 
 
 def insert_all_patient_documents():
     clinical_data_path = os.path.join(config.PATIENT_FOLDER, config.PATIENT_CLINICAL_JSON_FOLDER)
     files = [f for f in os.listdir(clinical_data_path) if f.endswith(".json")]
 
+    any_success = False
     for file in files:
         full_path = os.path.join(clinical_data_path, file)
         if not os.path.isfile(full_path):
@@ -40,6 +42,10 @@ def insert_all_patient_documents():
                     item["SAMPLE_ID"] = clinical_data["SAMPLE_ID"]
                 logger.debug(f"Genomic document: {item}")
                 post_genomic_data(genomic_data, file)
+        any_success = True
+    # Call run_matchengine once after all files processed, if any were successful
+    if any_success:
+        system.run_matchengine()
 
 def load_json(file_path):
     """Load JSON data from a file."""

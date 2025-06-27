@@ -1,4 +1,5 @@
 """
+This project is supposed to only interact with matchminer system.
 This script contains logic to insert trial documents to matchminer system or
 to get the max/highest protocol_id and protocol_number for existing trials in the system.
 Steps for auto-incrementing protocol_id/number for inserting trials:
@@ -11,6 +12,19 @@ Steps for auto-incrementing protocol_id/number for inserting trials:
     2.5 if successful, save protocol_id and protocol_no back in trial env config
 """
 
+# Insert all trials from JSON files:
+# python trial.py trial insert
+
+# Get a trial by protocol number:
+# python trial.py trial get --protocol_no 2024060101
+
+# Get max protocol_id and protocol_no from all trials:
+# python trial.py system get_max_pid_pno
+
+# Get all NCT IDs from all trials:
+# python trial.py system get_all_nct_ids
+
+
 import os
 import json
 from datetime import datetime
@@ -19,6 +33,7 @@ import urllib.parse
 from loguru import logger
 import config
 import argparse
+import system
 
 def load_environment_variables():
     """
@@ -35,7 +50,6 @@ def load_environment_variables():
             return json.load(env_config)
     else:
         raise Exception(f"Env config path {config.TRIAL_ENV_CONFIG_PATH} not found")
-
 
 def post_trial(trial_data):
     """
@@ -192,17 +206,51 @@ def save_environment_variables(env_vars):
     with open(config.TRIAL_ENV_CONFIG_PATH, 'w') as file:
         json.dump(env_vars, file, indent=4)
 
-def main(operation:str):
-    if operation == 'insert':
-        #insert_trials()
-        return None
-    elif operation == 'get_max_pid_pno':
-        max_protocol_id, max_protocol_no = get_max_protocol_id_and_number()
-        print(max_protocol_id, max_protocol_no)
-    elif operation == "get_all_nct_ids":
-        all_nct_ids = get_all_nct_ids()
-        save_to_file(all_nct_ids, "all_nct_ids", 'json')
-        print("NCT Ids for all trials saved at all_nct_ids.json")
+def main():
+    parser = argparse.ArgumentParser(description="Trial and system operations for Matchminer.")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # Trial operations
+    trial_parser = subparsers.add_parser("trial", help="Trial operations")
+    trial_subparsers = trial_parser.add_subparsers(dest="trial_op", required=True)
+
+    trial_insert_parser = trial_subparsers.add_parser("insert", help="Insert trials from JSON files")
+    trial_get_parser = trial_subparsers.add_parser("get", help="Get trial by protocol number")
+    trial_get_parser.add_argument("--protocol_no", type=str, required=True, help="Protocol number to fetch")
+    
+    trial_update_parser = trial_subparsers.add_parser("update", help="Update trial by protocol number")
+    trial_update_parser.add_argument("--protocol_no", type=str, required=True, help="Protocol number to update")
+    trial_update_parser.add_argument("--updated_trial_file", type=str, required=True, help="File name with updated trial JSON")
+
+    # System operations
+    system_parser = subparsers.add_parser("system", help="System-wide trial queries")
+    system_subparsers = system_parser.add_subparsers(dest="system_op", required=True)
+
+    system_subparsers.add_parser("get_max_pid_pno", help="Get max protocol_id and protocol_no from all trials")
+    system_subparsers.add_parser("get_all_nct_ids", help="Get all NCT IDs from all trials")
+
+    args = parser.parse_args()
+
+    if args.command == "trial":
+        if args.trial_op == "insert":
+            insert_trials()
+        elif args.trial_op == "get":
+            trial = get_trial_by_protocol_no(args.protocol_no)
+            print(json.dumps(trial, indent=2) if trial else "No trial found.")
+        elif args.trial_op == "update":
+            result = update_trial_by_protocol_no(args.protocol_no, args.updated_trial_file)
+            if result:
+                print("Update successful.")
+            else:
+                print("Update failed.")
+    elif args.command == "system":
+        if args.system_op == "get_max_pid_pno":
+            max_protocol_id, max_protocol_no = get_max_protocol_id_and_number()
+            print(max_protocol_id, max_protocol_no)
+        elif args.system_op == "get_all_nct_ids":
+            all_nct_ids = get_all_nct_ids()
+            save_to_file(all_nct_ids, "all_nct_ids", 'json')
+            print("NCT Ids for all trials saved at all_nct_ids.json")
 
 def insert_trials():
     """
@@ -212,8 +260,14 @@ def insert_trials():
      - calls a method to attach the updated env variables into the trial
      - calls a method to insert trial into matchminer system
      - if successful, calls a method to save incremented env variables
+     - moves processed file to trial_data_processed folder
     """
+    processed_folder = config.TRIAL_JSON_PROCESSED_FOLDER
+    if not os.path.exists(processed_folder):
+        os.makedirs(processed_folder, exist_ok=True)
+
     files = os.listdir(config.TRIAL_JSON_FOLDER)
+    any_success = False
     for file in files:
         full_path = os.path.join(config.TRIAL_JSON_FOLDER, file)
         if os.path.isfile(full_path) and file.endswith(".json"):
@@ -229,8 +283,15 @@ def insert_trials():
                 if response and response.status_code >= 200 and response.status_code < 300:
                     logger.info(f"Successfully inserted {file}")
                     save_environment_variables(updated_env_variables)
+                    # Move processed file to processed_folder
+                    dest_path = os.path.join(processed_folder, file)
+                    os.rename(full_path, dest_path)
+                    any_success = True
                 else:
                     logger.error(f"Error while posting trial {json.dumps(updated_data)}, response: {response}")
+    # Call run_matchengine once after all files processed, if any were successful
+    if any_success:
+        system.run_matchengine()
 
 def save_to_file(data: dict, file_name :str, format:str):        
     if format == "json":
@@ -238,11 +299,110 @@ def save_to_file(data: dict, file_name :str, format:str):
         with open(path_to_save_at, "w") as json_file: 
             json.dump(data, json_file)
 
+def get_trial_by_protocol_no(protocol_no: str):
+    """
+    Fetch a trial from matchminer system by protocol_no via GET request.
+
+    Parameters:
+    protocol_no (str): Protocol number to search for
+
+    Returns:
+    dict or None: Trial data if found, else None
+    """
+    try:
+        endpoint_url = f'{urllib.parse.urljoin(f"{config.MATCHMINER_SERVER}", config.TRIAL_ENDPOINT)}'
+        headers = {
+            'Authorization': f"Basic {config.TOKEN}",
+            'Content-Type': "application/json"
+        }
+        # Build filter for protocol_no
+        params = {
+            'where': json.dumps({"protocol_no": protocol_no})
+        }
+        response = requests.get(endpoint_url, headers=headers, params=params, verify=False)
+        response.raise_for_status()
+        data = response.json()
+        items = data.get("_items", [])
+        if items:
+            if len(items) > 1:
+                logger.warning(f"Found {len(items)} trials with protocol_no: {protocol_no}. Returning the first one.")
+            return items[0]  # Return the first matching trial
+        else:
+            print(f"No trial found with protocol_no: {protocol_no}")
+            return None
+    except requests.exceptions.HTTPError as err:
+        print(f"HTTP error occurred: {err}, {err.response.content}")
+    except Exception as err:
+        print(f"Other error occurred: {err}")
+    return None
+
+def update_trial_by_protocol_no(protocol_no: str, updated_json_file_name :str):
+    """
+    Update a trial in matchminer system by protocol_no via PUT request.
+
+    Parameters:
+    protocol_no (str): Protocol number to search for
+    updated_json_file_name (str): JSON file containing the updated trial data
+
+    Returns:
+    bool: True if update was successful, False otherwise
+    """
+
+    if not updated_json_file_name:
+        raise ValueError("File name with updated trial JSON must be provided")
+    
+    # Get trial by protocol_no
+    existing_trial = get_trial_by_protocol_no(protocol_no)
+    if not existing_trial:
+        logger.error(f"No trial found with protocol_no: {protocol_no}")
+        return False
+    
+    id = existing_trial.get('_id')
+    etag = existing_trial.get('_etag')
+
+    try:
+        with open(updated_json_file_name, 'r', encoding='utf-8') as f:
+            updated_data = json.load(f)
+    except FileNotFoundError:
+        logger.error(f"File not found: {updated_json_file_name}")
+        return False
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in file {updated_json_file_name}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error reading {updated_json_file_name}: {e}")
+        return False
+
+    updated_data.pop('_id', None)   
+    updated_data.pop('_etag', None)
+    updated_data.pop('_summary', None)    
+    updated_data.pop('_updated', None)
+    updated_data.pop('_created', None)
+    updated_data.pop('_links', None)
+
+    try:
+        endpoint_url = f'{urllib.parse.urljoin(f"{config.MATCHMINER_SERVER}", config.TRIAL_ENDPOINT)}/{id}'
+        print(f"Updating trial at {endpoint_url}")
+        headers = {
+            'Authorization': f"Basic {config.TOKEN}",
+            'Content-Type': "application/json",
+            'If-Match': etag  # Use the ETag for optimistic concurrency control
+        }
+        # Build filter for protocol_no
+        params = {
+            'where': json.dumps({"protocol_no": protocol_no})
+        }
+        response = requests.put(endpoint_url, headers=headers, params=params, json=updated_data, verify=False)
+        response.raise_for_status()
+        # Only run matchengine for single update, not in batch
+        system.run_matchengine()
+        return True
+    except requests.exceptions.HTTPError as err:
+        print(f"HTTP error occurred: {err}, {err.response.content}")
+    except Exception as err:
+        print(f"Other error occurred: {err}")
+    return False
+
 if __name__ == "__main__":
     logger.add('update_matchminer.log', rotation = '1 MB', encoding="utf-8", format="{time} {level} - Line: {line} - {message}")
-    
-    parser = argparse.ArgumentParser(description="Operations: Insert trials or get max protocol_id/number from existing trials")
-   
-    parser.add_argument("operation", choices=['insert', 'get_max_pid_pno', 'get_all_nct_ids'], help='Specify the operation to perform.')
-    args = parser.parse_args()
-    main(args.operation)
+    main()

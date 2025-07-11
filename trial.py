@@ -94,7 +94,7 @@ def get_max_protocol_id_and_number():
         headers['Content-Type'] = f"application/json"
         
         response = requests.get(endpoint_url, headers=headers, params = params, verify=False)
-        print(response.json())
+        #print(response.json())
         response.raise_for_status()
         data = json.loads(response.content)
         items = data["_items"]
@@ -164,7 +164,7 @@ def pre_process_trial_data(data, env_variables):
     if 'protocol_no' in data:
         data['protocol_no'] = env_variables.get('protocol_no', data['protocol_no'])
 
-    print("Updated Request Body:", data) 
+    print(f"Protocol ID: {data.get('protocol_id', 'N/A')}, Protocol Number: {data.get('protocol_no', 'N/A')}")
     return data
 
 def update_env_variables(env_variables):
@@ -207,50 +207,47 @@ def save_environment_variables(env_vars):
         json.dump(env_vars, file, indent=4)
 
 def main():
-    parser = argparse.ArgumentParser(description="Trial and system operations for Matchminer.")
+    parser = argparse.ArgumentParser(description="Trial operations for Matchminer.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # Trial operations
-    trial_parser = subparsers.add_parser("trial", help="Trial operations")
-    trial_subparsers = trial_parser.add_subparsers(dest="trial_op", required=True)
-
-    trial_insert_parser = trial_subparsers.add_parser("insert", help="Insert trials from JSON files")
-    trial_get_parser = trial_subparsers.add_parser("get", help="Get trial by protocol number")
-    trial_get_parser.add_argument("--protocol_no", type=str, required=True, help="Protocol number to fetch")
+    # Insert trials
+    insert_parser = subparsers.add_parser("insert", help="Insert trials from JSON files")
     
-    trial_update_parser = trial_subparsers.add_parser("update", help="Update trial by protocol number")
-    trial_update_parser.add_argument("--protocol_no", type=str, required=True, help="Protocol number to update")
-    trial_update_parser.add_argument("--updated_trial_file", type=str, required=True, help="File name with updated trial JSON")
+    # Get trial by protocol number
+    get_parser = subparsers.add_parser("get", help="Get trial by protocol number")
+    get_parser.add_argument("--protocol_no", type=str, required=True, help="Protocol number to fetch")
+    
+    # Update trial by protocol number
+    update_parser = subparsers.add_parser("update", help="Update trial by protocol number")
+    update_parser.add_argument("--protocol_no", type=str, required=True, help="Protocol number to update")
+    update_parser.add_argument("--updated_trial_file", type=str, required=True, help="File name with updated trial JSON")
 
-    # System operations
-    system_parser = subparsers.add_parser("system", help="System-wide trial queries")
-    system_subparsers = system_parser.add_subparsers(dest="system_op", required=True)
-
-    system_subparsers.add_parser("get_max_pid_pno", help="Get max protocol_id and protocol_no from all trials")
-    system_subparsers.add_parser("get_all_nct_ids", help="Get all NCT IDs from all trials")
+    # Get max protocol ID and number
+    get_max_parser = subparsers.add_parser("get_max_pid_pno", help="Get max protocol_id and protocol_no from all trials")
+    
+    # Get all NCT IDs
+    get_nct_parser = subparsers.add_parser("get_all_nct_ids", help="Get all NCT IDs from all trials")
 
     args = parser.parse_args()
 
-    if args.command == "trial":
-        if args.trial_op == "insert":
-            insert_trials()
-        elif args.trial_op == "get":
-            trial = get_trial_by_protocol_no(args.protocol_no)
-            print(json.dumps(trial, indent=2) if trial else "No trial found.")
-        elif args.trial_op == "update":
-            result = update_trial_by_protocol_no(args.protocol_no, args.updated_trial_file)
-            if result:
-                print("Update successful.")
-            else:
-                print("Update failed.")
-    elif args.command == "system":
-        if args.system_op == "get_max_pid_pno":
-            max_protocol_id, max_protocol_no = get_max_protocol_id_and_number()
-            print(max_protocol_id, max_protocol_no)
-        elif args.system_op == "get_all_nct_ids":
-            all_nct_ids = get_all_nct_ids()
-            save_to_file(all_nct_ids, "all_nct_ids", 'json')
-            print("NCT Ids for all trials saved at all_nct_ids.json")
+    if args.command == "insert":
+        insert_trials()
+    elif args.command == "get":
+        trial = get_trial_by_protocol_no(args.protocol_no)
+        print(json.dumps(trial, indent=2) if trial else "No trial found.")
+    elif args.command == "update":
+        result = update_trial_by_protocol_no(args.protocol_no, args.updated_trial_file)
+        if result:
+            print("Update successful.")
+        else:
+            print("Update failed.")
+    elif args.command == "get_max_pid_pno":
+        max_protocol_id, max_protocol_no = get_max_protocol_id_and_number()
+        print(max_protocol_id, max_protocol_no)
+    elif args.command == "get_all_nct_ids":
+        all_nct_ids = get_all_nct_ids()
+        save_to_file(all_nct_ids, "all_nct_ids", 'json')
+        print("NCT Ids for all trials saved at all_nct_ids.json")
 
 def insert_trials():
     """
@@ -262,17 +259,23 @@ def insert_trials():
      - if successful, calls a method to save incremented env variables
      - moves processed file to trial_data_processed folder
     """
+    # Check if trial folder exists
+    if not os.path.exists(config.TRIAL_FOLDER):
+        logger.error(f"Trial folder does not exist: {config.TRIAL_FOLDER}")
+        return False
+    
     processed_folder = config.TRIAL_JSON_PROCESSED_FOLDER
     if not os.path.exists(processed_folder):
         os.makedirs(processed_folder, exist_ok=True)
 
-    files = os.listdir(config.TRIAL_JSON_FOLDER)
+    files = os.listdir(config.TRIAL_FOLDER)
     any_success = False
     for file in files:
-        full_path = os.path.join(config.TRIAL_JSON_FOLDER, file)
+        full_path = os.path.join(config.TRIAL_FOLDER, file)
         if os.path.isfile(full_path) and file.endswith(".json"):
-            with open(full_path, 'r', encoding='utf-8') as json_file:
-                data = json.load(json_file)
+            try:
+                with open(full_path, 'r', encoding='utf-8') as json_file:
+                    data = json.load(json_file)
 
                 env_variables = load_environment_variables()
                 
@@ -283,19 +286,63 @@ def insert_trials():
                 if response and response.status_code >= 200 and response.status_code < 300:
                     logger.info(f"Successfully inserted {file}")
                     save_environment_variables(updated_env_variables)
-                    # Move processed file to processed_folder
+                    # Move processed file to processed_folder with retry logic
                     dest_path = os.path.join(processed_folder, file)
-                    os.rename(full_path, dest_path)
+                    _move_file_with_retry(full_path, dest_path)
                     any_success = True
                 else:
                     logger.error(f"Error while posting trial {json.dumps(updated_data)}, response: {response}")
+            except Exception as e:
+                logger.error(f"Error processing file {file}: {e}")
+                continue
     # Call run_matchengine once after all files processed, if any were successful
     if any_success:
         system.run_matchengine()
+    
+    return any_success
+
+def _move_file_with_retry(source_path, dest_path, max_retries=3, delay=1):
+    """
+    Move a file with retry logic to handle Windows file locking issues.
+    
+    Parameters:
+    source_path (str): Source file path
+    dest_path (str): Destination file path
+    max_retries (int): Maximum number of retry attempts
+    delay (float): Delay between retries in seconds
+    """
+    import time
+    import shutil
+    
+    for attempt in range(max_retries):
+        try:
+            # Try rename first (more efficient)
+            os.rename(source_path, dest_path)
+            logger.info(f"Successfully moved {source_path} to {dest_path}")
+            return
+        except PermissionError as e:
+            if attempt < max_retries - 1:
+                logger.warning(f"Permission error moving file (attempt {attempt + 1}/{max_retries}): {e}")
+                time.sleep(delay)
+                continue
+            else:
+                # Last attempt failed, try copy and delete
+                try:
+                    logger.info(f"Attempting copy and delete for {source_path}")
+                    shutil.copy2(source_path, dest_path)
+                    os.remove(source_path)
+                    logger.info(f"Successfully copied and deleted {source_path}")
+                    return
+                except Exception as copy_error:
+                    logger.error(f"Failed to copy and delete {source_path}: {copy_error}")
+                    raise e
+        except Exception as e:
+            logger.error(f"Unexpected error moving file {source_path}: {e}")
+            raise e
 
 def save_to_file(data: dict, file_name :str, format:str):        
     if format == "json":
-        path_to_save_at = os.path.join(config.TRIAL_JSON_FOLDER, f'{file_name}.json')
+        path_to_save_at = os.path.join(config.TRIAL_FOLDER, f'{file_name}.json')
         with open(path_to_save_at, "w") as json_file: 
             json.dump(data, json_file)
 

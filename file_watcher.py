@@ -39,9 +39,9 @@ class SimpleFileWatcher:
         
         # Get directories to watch
         self.watch_dirs = {
-            "patient_clinical": os.path.join(config.PATIENT_FOLDER, config.PATIENT_CLINICAL_JSON_FOLDER),
-            "patient_genomic": os.path.join(config.PATIENT_FOLDER, config.PATIENT_GENOMIC_JSON_FOLDER),
-            "trial": config.TRIAL_FOLDER
+            "patient_clinical": os.path.join(config.PATIENT_DIR, config.PATIENT_CLINICAL_JSON_DIR),
+            "patient_genomic": os.path.join(config.PATIENT_DIR, config.PATIENT_GENOMIC_JSON_DIR),
+            "trial": config.TRIAL_DIR
         }
     
     def _signal_handler(self, signum, frame):

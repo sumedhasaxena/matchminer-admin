@@ -260,18 +260,18 @@ def insert_trials():
      - moves processed file to trial_data_processed folder
     """
     # Check if trial folder exists
-    if not os.path.exists(config.TRIAL_FOLDER):
-        logger.error(f"Trial folder does not exist: {config.TRIAL_FOLDER}")
+    if not os.path.exists(config.TRIAL_DIR):
+        logger.error(f"Trial folder does not exist: {config.TRIAL_DIR}")
         return False
     
-    processed_folder = config.TRIAL_JSON_PROCESSED_FOLDER
+    processed_folder = config.TRIAL_JSON_PROCESSED_DIR
     if not os.path.exists(processed_folder):
         os.makedirs(processed_folder, exist_ok=True)
 
-    files = os.listdir(config.TRIAL_FOLDER)
+    files = os.listdir(config.TRIAL_DIR)
     any_success = False
     for file in files:
-        full_path = os.path.join(config.TRIAL_FOLDER, file)
+        full_path = os.path.join(config.TRIAL_DIR, file)
         if os.path.isfile(full_path) and file.endswith(".json"):
             try:
                 with open(full_path, 'r', encoding='utf-8') as json_file:
@@ -342,7 +342,7 @@ def _move_file_with_retry(source_path, dest_path, max_retries=3, delay=1):
 
 def save_to_file(data: dict, file_name :str, format:str):        
     if format == "json":
-        path_to_save_at = os.path.join(config.TRIAL_FOLDER, f'{file_name}.json')
+        path_to_save_at = os.path.join(config.TRIAL_DIR, f'{file_name}.json')
         with open(path_to_save_at, "w") as json_file: 
             json.dump(data, json_file)
 

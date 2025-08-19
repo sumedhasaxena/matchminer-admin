@@ -1,6 +1,6 @@
 # Matchminer Admin
 
-This application provides automated processing of patient clinical, genomic, and trial data JSON files for the Matchminer system. It runs as a background file watcher that monitors directories for new files and automatically processes them at a configured interval, sending the data to the Matchminer platform via API requests.
+This application provides automated processing of patient clinical, genomic, and trial data JSON files for the Matchminer system. It runs as a background data processor that executes on a configured schedule, processing all available files and sending the data to the Matchminer platform via API requests.
 
 ## Overview
 
@@ -39,7 +39,7 @@ To get started with development, you'll need to set up an isolated Python enviro
     a. **Create the virtual environment:**
     *   On **macOS and Linux**:
         ```bash
-        python3 -m venv venv
+        python -m venv venv
         ```
     *   On **Windows**:
         ```bash
@@ -100,8 +100,8 @@ Before running the application, you need to configure the Matchminer server conn
     MATCHMINER_SERVER = "https://your-matchminer-server.com/"
     TOKEN = "your-authentication-token"
     
-    # File watcher configuration
-    WATCHER_INTERVAL_MINUTES = 120  # Check for new files every 120 minutes (2 hours)
+    # Data processor configuration
+WATCHER_INTERVAL_MINUTES = 120  # Process files every 120 minutes (2 hours)
     
     # Patient data paths
     PATIENT_DATA_BASE_DIR = "path/to/matchminer-patient"  # Root directory of MATCHMINER_PATIENT repository
@@ -131,26 +131,26 @@ Once the setup is complete and the dependencies are installed, you can run the f
 To test the system with existing files:
 
 ```bash
-python3 file_watcher.py --once
+python data_processor.py --once
 ```
 
 This will process all available files once and exit, allowing you to verify everything works correctly.
 
 ### **B. Development Mode (Foreground)**
 
-To run the file watcher in the foreground (you'll see all output):
+To run the data processor in the foreground (you'll see all output):
 
 ```bash
 # Use interval from config.py
-python3 file_watcher.py
+python data_processor.py
 
 # Override with custom interval in minutes (e.g., 240 minutes = 4 hours)
-python3 file_watcher.py --minutes 240
+python data_processor.py --minutes 240
 
 ```
 
 This will:
-- Check for new files at the configured interval
+- Process files at the configured interval
 - Show all processing messages in the terminal
 - Stop when you press Ctrl+C
 
@@ -159,60 +159,60 @@ This will:
 #### **Trial Operations:**
 ```bash
 # Insert all trials from JSON files
-python3 trial.py insert
+python trial.py insert
 
 # Get trial by protocol number
-python3 trial.py get --protocol_no 2024060101
+python trial.py get --protocol_no 2024060101
 
 # Update trial by protocol number
-python3 trial.py update --protocol_no 2024060101 --updated_trial_file updated_trial.json
+python trial.py update --protocol_no 2024060101 --updated_trial_file updated_trial.json
 
 # Get max protocol_id and protocol_no from all trials.
 # The might be helpful to reset the protocol id and number in matchminer_trial_data_env_config.json
-python3 trial.py get_max_pid_pno
+python trial.py get_max_pid_pno
 
 # Get all NCT IDs from all trials
-python3 trial.py get_all_nct_ids
+python trial.py get_all_nct_ids
 ```
 
 #### **Patient Operations:**
 ```bash
 # Process all patient clinical and genomic data
-python3 patient.py
+python patient.py
 ```
 
-#### **File Watcher Operations:**
+#### **Data Processor Operations:**
 ```bash
 # Process all files once (test mode)
-python3 file_watcher.py --once
+python data_processor.py --once
 
-# Run file watcher with default interval from config.py
-python3 file_watcher.py
+# Run data processor with default interval from config.py
+python data_processor.py
 
-# Run file watcher with custom interval in minutes
-python3 file_watcher.py --minutes 240
+# Run data processor with custom interval in minutes
+python data_processor.py --minutes 240
 ```
 
 ---
 
 ## 5. Application Flow
 
-The file processor follows a simple, automated workflow:
+The data processor follows a simple, automated workflow:
 
-1.  **File Monitoring:** The system continuously monitors the `patient_data_reviewed/clinical`, `patient_data_reviewed/genomic`, and `trial_data_reviewed` directories for new JSON files.
-2.  **Processing Trigger:** Every 2 hours (configurable), the system checks for new or modified files and triggers processing.
+1.  **File Processing:** The system processes all available JSON files from the `patient_data_reviewed/clinical`, `patient_data_reviewed/genomic`, and `trial_data_reviewed` directories.
+2.  **Processing Trigger:** Every 2 hours (configurable), the system automatically processes all files.
 3.  **Data Processing:** For each file type:
     - **Patient Clinical Data:** Processes clinical information and sends to Matchminer
     - **Patient Genomic Data:** Processes genomic information and sends to Matchminer
     - **Trial Data:** Processes trial information with auto-incrementing protocol IDs and sends to Matchminer
 4.  **File Management:** Successfully processed files are moved to `patient_data_processed/` and `trial_data_processed/` directories.
-5.  **Logging:** All activities are logged to `watcher.log` with timestamps and error details.
+5.  **Logging:** All activities are logged to `processor.log` with timestamps and error details.
 
 ---
 
 ## 6. Deployment (Production on Linux)
 
-To deploy this application to a production Linux server, we use the `start_watcher.sh` script which runs the file watcher in the background with nohup.
+To deploy this application to a production Linux server, we use the `start_processor.sh` script which runs the data processor in the background with nohup.
 
 ### **A. Setup Instructions:**
 
@@ -233,24 +233,24 @@ To deploy this application to a production Linux server, we use the `start_watch
 
 5.  **Test the Setup:**
     ```bash
-    python3 file_watcher.py --once
+    python file_watcher.py --once
     ```
 
 ### **B. Deploy to Production:**
 
 1.  **Make the startup script executable:**
     ```bash
-    chmod +x start_watcher.sh
+    chmod +x start_processor.sh
     ```
 
-2.  **Start the file watcher in production:**
+2.  **Start the data processor in production:**
     ```bash
-    ./start_watcher.sh
+    ./start_processor.sh
     ```
 
     This will:
     - Run all dependency and configuration checks
-    - Start the file watcher in the background using nohup
+    - Start the data processor in the background using nohup
     - Show you the process ID and management commands
     - Continue running even after you close the terminal
 
@@ -258,35 +258,35 @@ To deploy this application to a production Linux server, we use the `start_watch
 
 1.  **Check if the process is running:**
     ```bash
-    ps aux | grep file_watcher.py
+    ps aux | grep data_processor.py
     ```
 
 2.  **View application logs:**
     ```bash
-    tail -f watcher.log
+    tail -f processor.log
     ```
 
 3.  **Test file processing:** Place a test JSON file in one of the monitored directories and check if it gets processed.
 
 ### **D. Management Commands:**
 
-**Stop the file watcher:**
+**Stop the data processor:**
 ```bash
-pkill -f file_watcher.py
+pkill -f data_processor.py
 ```
 
-**Restart the file watcher:**
+**Restart the data processor:**
 ```bash
 # Stop the current process
-pkill -f file_watcher.py
+pkill -f data_processor.py
 
 # Start a new instance
-./start_watcher.sh
+./start_processor.sh
 ```
 
 **Monitor logs in real-time:**
 ```bash
-tail -f watcher.log
+tail -f processor.log
 ```
 
 ---
@@ -298,7 +298,7 @@ tail -f watcher.log
 **Permission Denied:**
 ```bash
 # Make startup script executable
-chmod +x start_watcher.sh
+chmod +x start_processor.sh
 ```
 
 **Missing Dependencies:**
@@ -310,24 +310,22 @@ pip install -r requirements.txt
 **Configuration Errors:**
 - Check `config.py` for correct server URL and token
 - Verify the Matchminer server is accessible
-- Test connection manually: `python3 -c "import config; print(config.MATCHMINER_SERVER)"`
-
 
 ### **B. Logging and Monitoring**
 
 **View Application Logs:**
 ```bash
 # Real-time log monitoring
-tail -f watcher.log
+tail -f processor.log
 ```
 
 **Check Process Status:**
 ```bash
-# Check if file watcher is running
-ps aux | grep file_watcher.py
+# Check if data processor is running
+ps aux | grep data_processor.py
 
 # Check process details
-ps -ef | grep file_watcher.py
+ps -ef | grep data_processor.py
 ```
 
 ### **C. Configuration Files**
@@ -348,14 +346,14 @@ To prevent conflicts with existing values in the database, the system retrieves 
 
 The entries are used as follows:
 
-- **`protocol_id_counter`**: Sets the next available protocol_id value. To reset this counter, use `python3 trial.py get_max_pid_pno` to get the maximum protocol_id from the system, then set this value to `max_pid + 1` in the config file.
+- **`protocol_id_counter`**: Sets the next available protocol_id value. To reset this counter, use `python trial.py get_max_pid_pno` to get the maximum protocol_id from the system, then set this value to `max_pid + 1` in the config file.
 
 - **`current_date`**: Used to format the protocol_number which is auto-generated. The system uses this date to create protocol numbers in the format `YYYYMMDD + counter`. When setting up for the first time, you can leave `current_date` as blank or set to `null`. The system will automatically set thee value when it runs for the first time.
 
 - **`protocol_no_counter`**: The counter that gets appended to the current date to create the full protocol_number. This counter resets to "00" when the date changes. When setting up for the first time, you can leave `protocol_no_counter` to `00`. The system will automatically set the value when it runs for the first time.
 
 **Example workflow:**
-1. Run `python3 trial.py get_max_pid_pno` to get the current maximum protocol_id (e.g., 1050)
+1. Run `python trial.py get_max_pid_pno` to get the current maximum protocol_id (e.g., 1050)
 2. Set `protocol_id_counter` to 1051 in the config file
 3. The system will automatically increment this counter for each new trial inserted
 4. Protocol numbers will be generated as `20250108 + counter` (e.g., 2025010801, 2025010802, etc.)
@@ -365,4 +363,4 @@ The entries are used as follows:
 - `TOKEN`: Authentication token for API access
 - `PATIENT_FOLDER`: Directory for patient data files
 - `TRIAL_JSON_FOLDER`: Directory for trial data files
-- `WATCHER_INTERVAL_MINUTES`: Interval in minutes for checking new files (default: 120 = 2 hours)
+- `WATCHER_INTERVAL_MINUTES`: Interval in minutes for processing files (default: 120 = 2 hours)

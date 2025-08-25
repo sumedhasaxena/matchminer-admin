@@ -14,7 +14,7 @@ from datetime import datetime
 # Import the processing functions
 try:
     from patient import insert_all_patient_documents
-    from trial import insert_trials
+    from trial import process_trials
     import config
 except ImportError as e:
     print(f"Error importing modules: {e}")
@@ -54,7 +54,7 @@ class DataProcessor:
         # Process trial files
         try:
             print("  Processing trial files...")
-            trial_success = insert_trials()
+            trial_success = process_trials()
             if trial_success:
                 print("  Trial files processed successfully")
             else:

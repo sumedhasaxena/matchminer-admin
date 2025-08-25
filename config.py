@@ -1,23 +1,36 @@
 import os
+from dotenv import load_dotenv
 
-MATCHMINER_SERVER = ""
-TOKEN = ""
+# Load environment-specific config
+env = os.getenv('ENVIRONMENT', 'development')
+if env == 'development':
+    load_dotenv('.env.dev')
+elif env == 'production':
+    load_dotenv('.env')
+
+# Get sensitive configuration from environment variables
+MATCHMINER_SERVER = os.getenv("MATCHMINER_SERVER", "http://localhost:1952")
+TOKEN = os.getenv("TOKEN", "")
+LAST_RUN = os.getenv("LAST_RUN", "")
+
+# Validate required environment variables
+if not TOKEN:
+    raise ValueError("TOKEN environment variable is required. Please set it in your .env file.")
 
 # File watcher interval in minutes for checking new files
 WATCHER_INTERVAL_MINUTES = 120
 
-# Set PATIENT_DATA_BASE_DIR to the directory path where patient's (clinical and genomic) JSON files will be present.
-# Ideally this would be the root directory of MATCHMINER_PATIENT repository.
-PATIENT_DATA_BASE_DIR = r"path\to\matchminer-patient"
-PATIENT_DIR = os.path.join(PATIENT_DATA_BASE_DIR, "patient_data_reviewed")
+# Set PATIENT_DATA_BASE_DIR to the directory path of MATCHMINER_PATIENT repository.
+PATIENT_DATA_BASE_DIR = os.getenv("PATIENT_DATA_BASE_DIR")
+PATIENT_DIR = os.path.join(PATIENT_DATA_BASE_DIR, "patient_data")
 PATIENT_CLINICAL_JSON_DIR = "clinical"
 PATIENT_GENOMIC_JSON_DIR = "genomic"
 
-# Set TRIAL_DATA_BASE_DIR to the directory path where trial JSON files will be present.
-# Ideally this would be the root directory of NCT2CTML repository.
-TRIAL_DATA_BASE_DIR = r"path\to\nct2ctml"
-TRIAL_DIR = os.path.join(TRIAL_DATA_BASE_DIR, "trial_data_reviewed")
-
+# Set TRIAL_DATA_BASE_DIR to the directory path of NCT2CTML repository.
+TRIAL_DATA_BASE_DIR = os.getenv("TRIAL_DATA_BASE_DIR")
+TRIAL_NCT_DATA_DIR = os.path.join(TRIAL_DATA_BASE_DIR, "cache", "nct")
+TRIAL_DIR = os.path.join(TRIAL_DATA_BASE_DIR, "ctml", "json")
+TRIAL_STATUS_CSV_PATH = os.path.join(TRIAL_NCT_DATA_DIR, "trial_status.csv")
 TRIAL_ENV_CONFIG_PATH = "matchminer_trial_data_env_config.json"
 
 TRIAL_JSON_PROCESSED_DIR = "trial_data_processed"

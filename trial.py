@@ -1,30 +1,3 @@
-"""
-This project is supposed to only interact with matchminer system.
-This script contains logic to insert trial documents to matchminer system or
-to get the max/highest protocol_id and protocol_number for existing trials in the system.
-Steps for auto-incrementing protocol_id/number for inserting trials:
-1. Read trial JSON files from a directory
-2. For each trial
-    2.1 Read the trial env variables from file 
-    2.2 Increment env variables for protocol_id and protocol_no
-    2.3 Update the trial with new protocol_id and protocol_no
-    2.4 Post the trial to matchminer server
-    2.5 if successful, save protocol_id and protocol_no back in trial env config
-"""
-
-# Insert all trials from JSON files:
-# python trial.py trial insert
-
-# Get a trial by protocol number:
-# python trial.py trial get --protocol_no 2024060101
-
-# Get max protocol_id and protocol_no from all trials:
-# python trial.py system get_max_pid_pno
-
-# Get all NCT IDs from all trials:
-# python trial.py system get_all_nct_ids
-
-
 import os
 import json
 from datetime import datetime
@@ -82,8 +55,8 @@ def put_trial(matchminer_id,trial_data,etag):
     Parameters:
     trial_data (dict) : Trial Data
     """
-    try:
-        endpoint_url = f'{urllib.parse.urljoin(f"{config.MATCHMINER_SERVER}", config.TRIAL_ENDPOINT,matchminer_id)}'
+    try:        
+        endpoint_url = f'{urllib.parse.urljoin(f"{config.MATCHMINER_SERVER}", config.TRIAL_ENDPOINT)}/{matchminer_id}'
         print(f"Posting request to {endpoint_url}")
 
         headers = {
@@ -236,27 +209,24 @@ def main():
     parser = argparse.ArgumentParser(description="Trial operations for Matchminer.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # Insert trials
-    insert_parser = subparsers.add_parser("insert", help="Insert trials from JSON files")
+    # Insert/update trials based on trial_status.csv present in nct2ctml repo
+    upsert_parser = subparsers.add_parser("upsert", help="Insert or update trials from JSON files present in nct2ctml/cache/ctml directory and trial_status.csv")
     
     # Get trial by protocol number
     get_parser = subparsers.add_parser("get", help="Get trial by protocol number")
     get_parser.add_argument("--protocol_no", type=str, required=True, help="Protocol number to fetch")
     
     # Update trial by protocol number
-    update_parser = subparsers.add_parser("update", help="Update trial by protocol number")
+    update_parser = subparsers.add_parser("update", help="Update trial by protocol number. To be used when updated trial JSON is available.")
     update_parser.add_argument("--protocol_no", type=str, required=True, help="Protocol number to update")
     update_parser.add_argument("--updated_trial_file", type=str, required=True, help="File name with updated trial JSON")
 
     # Get max protocol ID and number
     get_max_parser = subparsers.add_parser("get_max_pid_pno", help="Get max protocol_id and protocol_no from all trials")
     
-    # Get all NCT IDs
-    get_nct_parser = subparsers.add_parser("get_all_nct_ids", help="Get all NCT IDs from all trials")
-
     args = parser.parse_args()
 
-    if args.command == "insert":
+    if args.command == "upsert":
         process_trials()
     elif args.command == "get":
         trial = get_trial_by_protocol_no(args.protocol_no)
@@ -269,11 +239,7 @@ def main():
             print("Update failed.")
     elif args.command == "get_max_pid_pno":
         max_protocol_id, max_protocol_no = get_max_protocol_id_and_number()
-        print(max_protocol_id, max_protocol_no)
-    elif args.command == "get_all_nct_ids":
-        all_nct_ids = get_all_nct_ids()
-        save_to_file(all_nct_ids, "all_nct_ids", 'json')
-        print("NCT Ids for all trials saved at all_nct_ids.json")
+        print(max_protocol_id, max_protocol_no)    
 
 def process_trials():
     """
@@ -317,7 +283,7 @@ def process_trials():
             trial_in_mm = get_trial_by_nct_id(nct_id)
             if trial_in_mm:
                 if trial_to_process['status'] == 'closed' and trial_in_mm['status'] != 'closed':
-                    trials_to_close.append((trial_in_mm['_id'], trial_in_mm))
+                    trials_to_close.append((trial_in_mm['_id'], trial_in_mm['nct_id'], trial_in_mm))
                 else:
                     trials_to_update.append((file_name, trial_in_mm['_id'], trial_in_mm['protocol_id'], trial_in_mm['protocol_no'], trial_in_mm['_etag']))
             else:                
@@ -333,9 +299,10 @@ def process_trials():
                     trials_to_insert.append(file_name)
 
     logger.info(f"Trials to insert: {trials_to_insert}")
-    logger.info(f"Trials to update: {trials_to_update}")
-    logger.info(f"Trials to close: {[trial[0] for trial in trials_to_close]}")
+    logger.info(f"Trials to update: {[trial[0] for trial in trials_to_update]}")
+    logger.info(f"Trials to close: {[trial[1] for trial in trials_to_close]}")
 
+    any_success = False
 
     # process new trials
     any_success = _process_trials_to_insert(trials_to_insert, any_success)
@@ -346,10 +313,9 @@ def process_trials():
     # process trials to close
     any_success = _process_trials_to_close(trials_to_close, any_success)
            
-    # Call run_matchengine once after all files processed, if any were successful
+    # Call run_matchengine to refresh patient-trial matches once after all files processed, if any were successful
     if any_success:
         system.run_matchengine()
-    any_success = True
     return any_success
 
 
@@ -378,10 +344,7 @@ def _process_trials_to_insert(trials_to_insert, any_success):
                 response = post_trial(updated_data)
                 if response and response.status_code >= 200 and response.status_code < 300:
                     logger.info(f"Successfully inserted {file_name}")
-                    save_environment_variables(updated_env_variables)
-                    # Move processed file to processed_folder with retry logic
-                    # dest_path = os.path.join(processed_folder, file_name)
-                    # _move_file_with_retry(full_path, dest_path)
+                    save_environment_variables(updated_env_variables)                    
                     any_success = True
                 else:
                     logger.error(f"Error while posting trial {json.dumps(updated_data)}, response: {response}")
@@ -422,11 +385,8 @@ def _process_trials_to_update(trials_to_update, any_success):
 
                     response = put_trial(matchminer_id, data, etag)
                     if response and response.status_code >= 200 and response.status_code < 300:
-                        logger.info(f"Successfully updated {file_name}")
+                        logger.info(f"Successfully updated {file_name}")                        
                         
-                        # Move processed file to processed_folder with retry logic
-                        # dest_path = os.path.join(processed_folder, file_name)
-                        # _move_file_with_retry(full_path, dest_path)
                         any_success = True
                     else:
                         logger.error(f"Error while updating trial {json.dumps(data)}, response: {response}")
@@ -444,7 +404,7 @@ def _process_trials_to_close(trials_to_close, any_success):
     Process trials that need to be closed.
     
     Parameters:
-    trials_to_close (list): List of tuples containing (matchminer_id, trial_data_in_mm)
+    trials_to_close (list): List of tuples containing (matchminer_id, nct_id, trial_data_in_mm)
     any_success (bool): Current success status
     
     Returns:
@@ -452,8 +412,8 @@ def _process_trials_to_close(trials_to_close, any_success):
     """
     for trial_to_close in trials_to_close:
         matchminer_id = trial_to_close[0]
-        trial_data_in_mm = trial_to_close[1]
-        response = close_trial(matchminer_id, trial_data_in_mm, force_refresh_matchengine=True)
+        trial_data_in_mm = trial_to_close[2]
+        response = close_trial(matchminer_id, trial_data_in_mm)
         if response:
             any_success = True
             logger.info(f"Successfully closed {matchminer_id}")
@@ -461,45 +421,6 @@ def _process_trials_to_close(trials_to_close, any_success):
             logger.error(f"Error while closing trial {matchminer_id}")
     
     return any_success
-
-def _move_file_with_retry(source_path, dest_path, max_retries=3, delay=1):
-    """
-    Move a file with retry logic to handle Windows file locking issues.
-    
-    Parameters:
-    source_path (str): Source file path
-    dest_path (str): Destination file path
-    max_retries (int): Maximum number of retry attempts
-    delay (float): Delay between retries in seconds
-    """
-    import time
-    import shutil
-    
-    for attempt in range(max_retries):
-        try:
-            # Try rename first (more efficient)
-            os.rename(source_path, dest_path)
-            logger.info(f"Successfully moved {source_path} to {dest_path}")
-            return
-        except PermissionError as e:
-            if attempt < max_retries - 1:
-                logger.warning(f"Permission error moving file (attempt {attempt + 1}/{max_retries}): {e}")
-                time.sleep(delay)
-                continue
-            else:
-                # Last attempt failed, try copy and delete
-                try:
-                    logger.info(f"Attempting copy and delete for {source_path}")
-                    shutil.copy2(source_path, dest_path)
-                    os.remove(source_path)
-                    logger.info(f"Successfully copied and deleted {source_path}")
-                    return
-                except Exception as copy_error:
-                    logger.error(f"Failed to copy and delete {source_path}: {copy_error}")
-                    raise e
-        except Exception as e:
-            logger.error(f"Unexpected error moving file {source_path}: {e}")
-            raise e
 
 def save_to_file(data: dict, file_name :str, format:str):        
     if format == "json":

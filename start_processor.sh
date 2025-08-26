@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # matchminer-admin Data Processor Startup Script
-# This script starts the data processor that processes JSON files on a schedule
+# This script starts the data processor that processes patient and trial JSON files and sends to matchminer DB
 
 echo "========================================"
 echo "    matchminer-admin Data Processor"
 echo "========================================"
 echo
 
-# Check if Python 3 is available
+# Check if Python is available
 if ! command -v python &> /dev/null; then
-    echo "ERROR: Python 3 is not installed or not in PATH"
+    echo "ERROR: Python is not installed or not in PATH"
     echo "Please install Python 3 and try again"
     exit 1
 fi
@@ -31,22 +31,23 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "All checks passed"
-echo "Starting data processor in background..."
-echo "Logs will be written to processor.log"
-echo "To stop the processor: pkill -f data_processor.py"
-echo "To view logs: tail -f processor.log"
-echo
+echo "Starting data processor..."
 
-# Start the data processor in background with nohup (uses config.py interval)
-nohup python data_processor.py > processor.log 2>&1 &
+# Set environment
+export ENVIRONMENT=tobeset
 
-# Get the process ID
-PROCESSOR_PID=$!
-echo "Data processor started with PID: $PROCESSOR_PID"
-echo "Background process is running. You can safely close this terminal."
-echo
-echo "Useful commands:"
-echo "  Check if running: ps aux | grep data_processor.py"
-echo "  View logs: tail -f processor.log"
-echo "  Stop processor: pkill -f data_processor.py" 
+echo "Processing files at $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================"
+
+# Call the Python script to process files once
+python data_processor.py
+PROCESS_EXIT_CODE=$?
+
+if [ $PROCESS_EXIT_CODE -eq 0 ]; then
+    echo "Processing completed successfully"
+else
+    echo "Processing completed with errors (exit code: $PROCESS_EXIT_CODE)"
+fi
+
+echo "========================================"
+echo "Data processor completed at $(date '+%Y-%m-%d %H:%M:%S')" 

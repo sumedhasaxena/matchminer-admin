@@ -7,6 +7,8 @@ if env == 'development':
     load_dotenv('.env.dev')
 elif env == 'production':
     load_dotenv('.env')
+else:
+    raise ValueError("Invalid environment. Please set the ENVIRONMENT environment variable to 'development' or 'production'.")
 
 # Get sensitive configuration from environment variables
 MATCHMINER_SERVER = os.getenv("MATCHMINER_SERVER", "http://localhost:1952")

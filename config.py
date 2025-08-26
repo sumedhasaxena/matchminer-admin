@@ -17,16 +17,11 @@ LAST_RUN = os.getenv("LAST_RUN", "")
 if not TOKEN:
     raise ValueError("TOKEN environment variable is required. Please set it in your .env file.")
 
-# File watcher interval in minutes for checking new files
-WATCHER_INTERVAL_MINUTES = 120
-
-# Set PATIENT_DATA_BASE_DIR to the directory path of MATCHMINER_PATIENT repository.
 PATIENT_DATA_BASE_DIR = os.getenv("PATIENT_DATA_BASE_DIR")
 PATIENT_DIR = os.path.join(PATIENT_DATA_BASE_DIR, "patient_data")
 PATIENT_CLINICAL_JSON_DIR = "clinical"
 PATIENT_GENOMIC_JSON_DIR = "genomic"
 
-# Set TRIAL_DATA_BASE_DIR to the directory path of NCT2CTML repository.
 TRIAL_DATA_BASE_DIR = os.getenv("TRIAL_DATA_BASE_DIR")
 TRIAL_NCT_DATA_DIR = os.path.join(TRIAL_DATA_BASE_DIR, "cache", "nct")
 TRIAL_DIR = os.path.join(TRIAL_DATA_BASE_DIR, "ctml", "json")

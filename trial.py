@@ -205,6 +205,21 @@ def save_environment_variables(env_vars):
     with open(config.TRIAL_ENV_CONFIG_PATH, 'w') as file:
         json.dump(env_vars, file, indent=4)
 
+def update_last_run_environment():
+    """
+    Update the LAST_RUN environment variable to current date and save to config file
+    """
+    from datetime import datetime
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    os.environ['LAST_RUN'] = current_date
+    
+    # Save to a separate config file
+    config_data = {'LAST_RUN': current_date}
+    with open('last_run_config.json', 'w') as f:
+        json.dump(config_data, f, indent=2)
+    
+    logger.info(f"Updated LAST_RUN to {current_date} and saved to last_run_config.json")
+
 def main():
     parser = argparse.ArgumentParser(description="Trial operations for Matchminer.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -316,6 +331,10 @@ def process_trials():
     # Call run_matchengine to refresh patient-trial matches once after all files processed, if any were successful
     if any_success:
         system.run_matchengine()
+    
+    # Update LAST_RUN environment variable to current date
+    update_last_run_environment()
+    
     return any_success
 
 

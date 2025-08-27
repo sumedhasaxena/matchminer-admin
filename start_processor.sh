@@ -8,13 +8,6 @@ echo "    matchminer-admin Data Processor"
 echo "========================================"
 echo
 
-# Check if Python is available
-if ! command -v python &> /dev/null; then
-    echo "ERROR: Python is not installed or not in PATH"
-    echo "Please install Python 3 and try again"
-    exit 1
-fi
-
 # Check if we're in the right directory
 if [ ! -f "config.py" ]; then
     echo "ERROR: config.py not found"
@@ -22,13 +15,40 @@ if [ ! -f "config.py" ]; then
     exit 1
 fi
 
-# Check if required Python packages are installed
-echo "Checking dependencies..."
-python -c "import requests, loguru" 2>/dev/null
-if [ $? -ne 0 ]; then
-    echo "ERROR: Required Python packages not found"
-    echo "Please install dependencies: pip3 install -r requirements.txt"
-    exit 1
+# Source the conda initialization and call the function
+source ~/.init_conda
+init_conda
+
+# Activate the conda environment
+ENV_NAME="matchminer_admin"
+
+# Check if conda environment exists
+if conda list -n "$ENV_NAME" >/dev/null 2>&1; then
+    echo "Activating conda environment: $ENV_NAME"
+    conda activate "$ENV_NAME"
+else
+    echo "Creating conda environment: $ENV_NAME"
+    conda create -n "$ENV_NAME" python=3.12 -y
+    
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to create conda environment '$ENV_NAME'"
+        exit 1
+    fi
+    
+    echo "Activating newly created conda environment: $ENV_NAME"
+    conda activate "$ENV_NAME"
+    
+    echo "Installing requirements from requirements.txt..."
+    if [ -f "requirements.txt" ]; then
+        pip install -r requirements.txt
+        if [ $? -ne 0 ]; then
+            echo "ERROR: Failed to install requirements"
+            exit 1
+        fi
+        echo "Requirements installed successfully"
+    else
+        echo "WARNING: requirements.txt not found, skipping package installation"
+    fi
 fi
 
 echo "Starting data processor..."

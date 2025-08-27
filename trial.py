@@ -205,20 +205,15 @@ def save_environment_variables(env_vars):
     with open(config.TRIAL_ENV_CONFIG_PATH, 'w') as file:
         json.dump(env_vars, file, indent=4)
 
-def update_last_run_environment():
+def save_last_run_environment(last_run_date_per_trial: dict):
     """
-    Update the LAST_RUN environment variable to current date and save to config file
-    """
-    from datetime import datetime
-    current_date = datetime.now().strftime('%Y-%m-%d')
-    os.environ['LAST_RUN'] = current_date
+    Update the last run date for each trial that was processed
+    """   
     
-    # Save to a separate config file
-    config_data = {'LAST_RUN': current_date}
     with open('last_run_config.json', 'w') as f:
-        json.dump(config_data, f, indent=2)
+        json.dump(last_run_date_per_trial, f, indent=2)
     
-    logger.info(f"Updated LAST_RUN to {current_date} and saved to last_run_config.json")
+    logger.info(f"Updated and saved last_run_config.json")
 
 def main():
     parser = argparse.ArgumentParser(description="Trial operations for Matchminer.")
@@ -278,27 +273,41 @@ def process_trials():
     processed_folder = config.TRIAL_JSON_PROCESSED_DIR
     if not os.path.exists(processed_folder):
         os.makedirs(processed_folder, exist_ok=True)
+    
+    try:
+        with open("last_run_config.json", "r") as f:
+            last_run_date_per_trial = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        last_run_date_per_trial = {}
 
     # read trial_status.csv and filter trials to process based on last_run
     trials_to_process = []
-    logger.info(f"Preparing a list of trials to process which were updated after last_run: {config.LAST_RUN}")
+    logger.info(f"Preparing a list of trials to process which were updated after last matcminer_admin's run")
     with open(config.TRIAL_STATUS_CSV_PATH, 'r', encoding='utf-8') as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
-            if row['entry_last_updated_date'] > config.LAST_RUN:
+            if row['nct_id'] == "NA":
+                trial_id = row['local_protocol_ids'].split('|')[0]
+            else:
+                trial_id = row['nct_id']
+            if row['entry_last_updated_date'] > last_run_date_per_trial.get(trial_id, "1900-01-01"): # if the trial is not found in last_run_date_per_trial, use a very old date, so that its processed
                 trials_to_process.append(row)
 
     trials_to_update = [] # stores filename, matchminer id, protocol_id, protocol_no of trials to update
     trials_to_insert = [] # stores filename which would contain trial data to be inserted
     trials_to_close = [] # stores matchminer id, trial data of trials to close
+
     for trial_to_process in trials_to_process:
         nct_id = trial_to_process['nct_id']
         file_name = _get_trial_file_name(trial_to_process)
         if nct_id and nct_id != 'NA':
             trial_in_mm = get_trial_by_nct_id(nct_id)
             if trial_in_mm:
-                if trial_to_process['status'] == 'closed' and trial_in_mm['status'] != 'closed':
-                    trials_to_close.append((trial_in_mm['_id'], trial_in_mm['nct_id'], trial_in_mm))
+                if trial_to_process['status'] == 'closed':
+                    if trial_in_mm['status'] != 'closed':
+                        trials_to_close.append((trial_in_mm['_id'], trial_in_mm['nct_id'], trial_in_mm))
+                    else:
+                        logger.info(f"Trial {nct_id} is already closed in matchminer")
                 else:
                     trials_to_update.append((file_name, trial_in_mm['_id'], trial_in_mm['protocol_id'], trial_in_mm['protocol_no'], trial_in_mm['_etag']))
             else:                
@@ -320,25 +329,25 @@ def process_trials():
     any_success = False
 
     # process new trials
-    any_success = _process_trials_to_insert(trials_to_insert, any_success)
+    any_success = _process_trials_to_insert(trials_to_insert, last_run_date_per_trial, any_success)
 
     # process trials to update
-    any_success = _process_trials_to_update(trials_to_update, any_success)
+    any_success = _process_trials_to_update(trials_to_update, last_run_date_per_trial, any_success)
 
     # process trials to close
-    any_success = _process_trials_to_close(trials_to_close, any_success)
+    any_success = _process_trials_to_close(trials_to_close, last_run_date_per_trial, any_success)
            
     # Call run_matchengine to refresh patient-trial matches once after all files processed, if any were successful
     if any_success:
         system.run_matchengine()
     
     # Update LAST_RUN environment variable to current date
-    update_last_run_environment()
+    save_last_run_environment(last_run_date_per_trial)
     
     return any_success
 
 
-def _process_trials_to_insert(trials_to_insert, any_success):
+def _process_trials_to_insert(trials_to_insert:list, last_run_date_per_trial: dict, any_success:bool):
     """
     Process trials that need to be inserted.
     
@@ -363,10 +372,11 @@ def _process_trials_to_insert(trials_to_insert, any_success):
                 response = post_trial(updated_data)
                 if response and response.status_code >= 200 and response.status_code < 300:
                     logger.info(f"Successfully inserted {file_name}")
-                    save_environment_variables(updated_env_variables)                    
+                    save_environment_variables(updated_env_variables)
+                    last_run_date_per_trial[file_name.split('.')[0]] = datetime.now().strftime("%Y-%m-%d")
                     any_success = True
                 else:
-                    logger.error(f"Error while posting trial {json.dumps(updated_data)}, response: {response}")
+                    logger.error(f"Error while posting trial {file_name}, response: {response}")
             except Exception as e:
                 logger.error(f"Error processing file {file_name}: {e}")
                 continue
@@ -376,7 +386,7 @@ def _process_trials_to_insert(trials_to_insert, any_success):
     
     return any_success
 
-def _process_trials_to_update(trials_to_update, any_success):
+def _process_trials_to_update(trials_to_update:list, last_run_date_per_trial: dict, any_success:bool):
     """
     Process trials that need to be updated.
     
@@ -405,7 +415,7 @@ def _process_trials_to_update(trials_to_update, any_success):
                     response = put_trial(matchminer_id, data, etag)
                     if response and response.status_code >= 200 and response.status_code < 300:
                         logger.info(f"Successfully updated {file_name}")                        
-                        
+                        last_run_date_per_trial[file_name.split('.')[0]] = datetime.now().strftime("%Y-%m-%d")
                         any_success = True
                     else:
                         logger.error(f"Error while updating trial {json.dumps(data)}, response: {response}")
@@ -418,7 +428,7 @@ def _process_trials_to_update(trials_to_update, any_success):
     
     return any_success
 
-def _process_trials_to_close(trials_to_close, any_success):
+def _process_trials_to_close(trials_to_close:list, last_run_date_per_trial: dict, any_success:bool):
     """
     Process trials that need to be closed.
     
@@ -434,6 +444,7 @@ def _process_trials_to_close(trials_to_close, any_success):
         trial_data_in_mm = trial_to_close[2]
         response = close_trial(matchminer_id, trial_data_in_mm)
         if response:
+            last_run_date_per_trial[trial_data_in_mm['nct_id']] = datetime.now().strftime("%Y-%m-%d")
             any_success = True
             logger.info(f"Successfully closed {matchminer_id}")
         else:

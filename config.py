@@ -3,27 +3,19 @@ import json
 from dotenv import load_dotenv
 
 # Load environment-specific config
-env = os.getenv('ENVIRONMENT', 'development')
+env = os.getenv('ENVIRONMENT', 'NA')
 if env == 'development':
     load_dotenv('.env.dev')
+    print("Using development environment")
 elif env == 'production':
     load_dotenv('.env')
+    print("Using production environment")
 else:
     raise ValueError("Invalid environment. Please set the ENVIRONMENT environment variable to 'development' or 'production'.")
 
 # Get sensitive configuration from environment variables
 MATCHMINER_SERVER = os.getenv("MATCHMINER_SERVER", "http://localhost:1952")
 TOKEN = os.getenv("TOKEN", "")
-
-# Get LAST_RUN from environment variable or config file
-LAST_RUN = os.getenv("LAST_RUN", "")
-if not LAST_RUN and os.path.exists("last_run_config.json"):
-    try:
-        with open("last_run_config.json", "r") as f:
-            config_data = json.load(f)
-            LAST_RUN = config_data.get("LAST_RUN", "")
-    except (json.JSONDecodeError, FileNotFoundError):
-        LAST_RUN = ""
 
 # Validate required environment variables
 if not TOKEN:

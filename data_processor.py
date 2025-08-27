@@ -11,7 +11,6 @@ from datetime import datetime
 try:
     from patient import insert_all_patient_documents
     from trial import process_trials
-    import config
 except ImportError as e:
     print(f"Error importing modules: {e}")
     sys.exit(1)
@@ -31,9 +30,9 @@ class DataProcessor:
             print("  Processing patient files...")
             patient_success = insert_all_patient_documents()
             if patient_success:
-                print("  Patient files processed successfully")
+                print("Patient files processed successfully")
             else:
-                print("  No patient files to process or processing failed")
+                print("No patient files to process or processing failed")
         except Exception as e:
             print(f"  Patient files failed: {e}")
             success = False

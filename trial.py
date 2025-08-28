@@ -163,7 +163,7 @@ def pre_process_trial_data(data, env_variables):
     if 'protocol_no' in data:
         data['protocol_no'] = env_variables.get('protocol_no', data['protocol_no'])
 
-    print(f"Protocol ID: {data.get('protocol_id', 'N/A')}, Protocol Number: {data.get('protocol_no', 'N/A')}")
+    logger.info(f"nct_id: {data.get('nct_id', 'N/A')}, Protocol ID: {data.get('protocol_id', 'N/A')}, Protocol Number: {data.get('protocol_no', 'N/A')}")
     return data
 
 def update_env_variables(env_variables):

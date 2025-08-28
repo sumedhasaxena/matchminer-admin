@@ -85,8 +85,7 @@ def insert_all_patient_documents():
     # Call run_matchengine once after all files processed, if any were successful
     if any_success:
         system.run_matchengine()
-    
-    logger.debug(f"insert_all_patient_documents returning: {any_success}")
+        
     return any_success
 
 def load_json(file_path):

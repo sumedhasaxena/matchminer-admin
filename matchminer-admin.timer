@@ -1,0 +1,10 @@
+[Unit]
+Description=Run a script to pull trial files and insert/update trials and new patient data into matchminer system
+Requires=matchminer-admin.service
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:00:00
+Persistent=false
+
+[Install]
+WantedBy=timers.target

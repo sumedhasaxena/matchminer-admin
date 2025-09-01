@@ -231,6 +231,10 @@ def main():
     update_parser.add_argument("--protocol_no", type=str, required=True, help="Protocol number to update")
     update_parser.add_argument("--updated_trial_file", type=str, required=True, help="File name with updated trial JSON")
 
+    # insert new trial
+    insert_parser = subparsers.add_parser("insert", help="Insert new trial. To be used when trial JSON is available.")
+    insert_parser.add_argument("--trial_file", type=str, required=True, help="File name with trial JSON")
+
     # Get max protocol ID and number
     get_max_parser = subparsers.add_parser("get_max_pid_pno", help="Get max protocol_id and protocol_no from all trials")
     
@@ -238,6 +242,12 @@ def main():
 
     if args.command == "upsert":
         process_trials()
+    elif args.command == "insert":
+        result = insert_new_trial(args.trial_file)
+        if result:
+            print("Insert successful.") 
+        else:
+            print("Insert failed.")    
     elif args.command == "get":
         trial = get_trial_by_protocol_no(args.protocol_no)
         print(json.dumps(trial, indent=2) if trial else "No trial found.")
@@ -611,6 +621,40 @@ def get_trial_by_local_protocol_ids(local_protocol_ids: list):
     except Exception as err:
         print(f"Other error occurred: {err}")
     return None
+
+def insert_new_trial(json_file_name :str):
+    """
+    Insert a trial in matchminer system by POST request.
+
+    Parameters:
+    json_file_name (str): JSON file containing the trial data
+
+    Returns:
+    bool: True if update was successful, False otherwise
+    """
+
+    if not json_file_name:
+        raise ValueError("File name with trial JSON must be provided")    
+
+    try:
+        with open(json_file_name, 'r', encoding='utf-8') as f:
+            trial_data = json.load(f)
+    except FileNotFoundError:
+        logger.error(f"File not found: {json_file_name}")
+        return False
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in file {json_file_name}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error reading {json_file_name}: {e}")
+        return False
+    response = post_trial(trial_data)
+    if response and response.status_code >= 200 and response.status_code < 300:
+        logger.info(f"Successfully inserted trial from {json_file_name}")
+        return True
+    else:
+        logger.error(f"Error while posting trial from {json_file_name}, response: {response}")
+    return False
 
 def update_trial_by_protocol_no(protocol_no: str, updated_json_file_name :str):
     """

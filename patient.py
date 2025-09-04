@@ -12,7 +12,7 @@ import requests
 import urllib.parse
 from loguru import logger
 import config
-import system 
+import system
 
 def insert_all_patient_documents():
     clinical_data_path = os.path.join(config.PATIENT_DIR, config.PATIENT_CLINICAL_JSON_DIR)
@@ -164,6 +164,8 @@ def _move_file_with_retry(source_path, dest_path, max_retries=3, delay=1):
             raise e
 
 def main():
+    # Add file logging
+    logger.add('logs/patient_processor.log', rotation='10 MB', encoding="utf-8", format="{time} {level} - Line: {line} - {message}")
     insert_all_patient_documents()
 
 if __name__ == "__main__":

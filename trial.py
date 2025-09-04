@@ -767,5 +767,5 @@ def close_trial(mm_id: str, existing_trial :dict, force_refresh_matchengine: boo
     return False
 
 if __name__ == "__main__":
-    logger.add('update_matchminer.log', rotation = '1 MB', encoding="utf-8", format="{time} {level} - Line: {line} - {message}")
+    logger.add('trial_processor.log', rotation = '1 MB', encoding="utf-8", format="{time} {level} - Line: {line} - {message}")
     main()

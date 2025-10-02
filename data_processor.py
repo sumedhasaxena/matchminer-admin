@@ -9,7 +9,7 @@ from datetime import datetime
 from loguru import logger
 
 # Add file logging
-logger.add('logs/data_processor.log', rotation='10 MB', encoding="utf-8", format="{time} {level} - Line: {line} - {message}")
+logger.add('logs/data_processor.log', rotation='10 MB', encoding="utf-8", format="{time} {level} - Line: {line} - {message}", level="INFO")
 
 # Import the processing functions
 try:

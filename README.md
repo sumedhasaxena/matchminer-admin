@@ -170,7 +170,7 @@ python trial.py trial update --protocol_no 2024060101 --updated_trial_file /path
 python trial.py trial insert --trial_file /path/to/new_trial.json
 
 # Get max protocol_id and protocol_no from all trials
-python trial.py system get_max_pid_pno
+python trial.py get_max_pid_pno
 
 ```
 

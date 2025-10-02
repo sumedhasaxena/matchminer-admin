@@ -34,7 +34,7 @@ def post_trial(trial_data):
     """
     try:
         endpoint_url = f'{urllib.parse.urljoin(f"{config.MATCHMINER_SERVER}", config.TRIAL_ENDPOINT)}'
-        print(f"Posting request to {endpoint_url}")
+        logger.debug(f"Posting request to {endpoint_url}")
 
         headers = {}
         headers['Authorization'] = f"Basic {config.TOKEN}"
@@ -44,9 +44,9 @@ def post_trial(trial_data):
         response.raise_for_status()
         return response
     except requests.exceptions.HTTPError as err:
-        print(f"HTTP error occurred: {err}, {err.response.content}")  # Handle HTTP errors
+        logger.error(f"HTTP error occurred: {err}, {err.response.content}")  # Handle HTTP errors
     except Exception as err:
-        print(f"Other error occurred: {err}")  # Handle other exceptions
+        logger.error(f"Other error occurred: {err}")  # Handle other exceptions
 
 def put_trial(matchminer_id,trial_data,etag):
     """
@@ -69,9 +69,9 @@ def put_trial(matchminer_id,trial_data,etag):
         response.raise_for_status()
         return response
     except requests.exceptions.HTTPError as err:
-        print(f"HTTP error occurred: {err}, {err.response.content}")  # Handle HTTP errors
+        logger.error(f"HTTP error occurred: {err}, {err.response.content}")  # Handle HTTP errors
     except Exception as err:
-        print(f"Other error occurred: {err}")  # Handle other exceptions
+        logger.error(f"Other error occurred: {err}")  # Handle other exceptions
 
 def get_max_protocol_id_and_number():
     """
@@ -106,9 +106,9 @@ def get_max_protocol_id_and_number():
 
         return max_protocol_id, max_protocol_no
     except requests.exceptions.HTTPError as err:
-        print(f"HTTP error occurred: {err}, {err.response.content}")  # Handle HTTP errors
+        logger.error(f"HTTP error occurred: {err}, {err.response.content}")  # Handle HTTP errors
     except Exception as err:
-        print(f"Other error occurred: {err}")  # Handle other exceptions
+        logger.error(f"Other error occurred: {err}")  # Handle other exceptions
 
 def get_all_nct_ids():
     """
@@ -141,9 +141,9 @@ def get_all_nct_ids():
                 nct_ids.append(nct_id)
         return nct_ids
     except requests.exceptions.HTTPError as err:
-        print(f"HTTP error occurred: {err}, {err.response.content}")  # Handle HTTP errors
+        logger.error(f"HTTP error occurred: {err}, {err.response.content}")  # Handle HTTP errors
     except Exception as err:
-        print(f"Other error occurred: {err}")  # Handle other exceptions
+        logger.error(f"Other error occurred: {err}")  # Handle other exceptions
 
 def pre_process_trial_data(data, env_variables):
     """
@@ -250,7 +250,7 @@ def main():
             print("Insert failed.")    
     elif args.command == "get":
         trial = get_trial_by_protocol_no(args.protocol_no)
-        print(json.dumps(trial, indent=2) if trial else "No trial found.")
+        logger.debug(json.dumps(trial, indent=2) if trial else "No trial found.")
     elif args.command == "update":
         result = update_trial_by_protocol_no(args.protocol_no, args.updated_trial_file)
         if result:
@@ -504,12 +504,12 @@ def get_trial_by_protocol_no(protocol_no: str):
                 logger.warning(f"Found {len(items)} trials with protocol_no: {protocol_no}. Returning the first one.")
             return items[0]  # Return the first matching trial
         else:
-            print(f"No trial found with protocol_no: {protocol_no}")
+            logger.debug(f"No trial found with protocol_no: {protocol_no}")
             return None
     except requests.exceptions.HTTPError as err:
-        print(f"HTTP error occurred: {err}, {err.response.content}")
+        logger.error(f"HTTP error occurred: {err}, {err.response.content}")
     except Exception as err:
-        print(f"Other error occurred: {err}")
+        logger.error(f"Other error occurred: {err}")
     return None
 
 def get_trial_by_mm_id(_id: str):
@@ -541,12 +541,12 @@ def get_trial_by_mm_id(_id: str):
                 logger.warning(f"Found {len(items)} trials with id: {_id}. Returning the first one.")
             return items[0]  # Return the first matching trial
         else:
-            print(f"No trial found with id: {_id}")
+            logger.info(f"No trial found with id: {_id}")
             return None
     except requests.exceptions.HTTPError as err:
-        print(f"HTTP error occurred: {err}, {err.response.content}")
+        logger.error(f"HTTP error occurred: {err}, {err.response.content}")
     except Exception as err:
-        print(f"Other error occurred: {err}")
+        logger.error(f"Other error occurred: {err}")
     return None
 
 def get_trial_by_nct_id(nct_id: str):
@@ -580,9 +580,9 @@ def get_trial_by_nct_id(nct_id: str):
         else:            
             return None
     except requests.exceptions.HTTPError as err:
-        print(f"HTTP error occurred: {err}, {err.response.content}")
+        logger.error(f"HTTP error occurred: {err}, {err.response.content}")
     except Exception as err:
-        print(f"Other error occurred: {err}")
+        logger.error(f"Other error occurred: {err}")
     return None
 
 def get_trial_by_local_protocol_ids(local_protocol_ids: list):
@@ -614,12 +614,12 @@ def get_trial_by_local_protocol_ids(local_protocol_ids: list):
                 logger.warning(f"Found {len(items)} trials with nct_id: {local_protocol_ids}. Returning the first one.")
             return items[0]  # Return the first matching trial
         else:
-            print(f"No trial found with local_protocol_ids: {local_protocol_ids}")
+            logger.info(f"No trial found with local_protocol_ids: {local_protocol_ids}")
             return None
     except requests.exceptions.HTTPError as err:
-        print(f"HTTP error occurred: {err}, {err.response.content}")
+        logger.error(f"HTTP error occurred: {err}, {err.response.content}")
     except Exception as err:
-        print(f"Other error occurred: {err}")
+        logger.error(f"Other error occurred: {err}")
     return None
 
 def insert_new_trial(json_file_name :str):
@@ -718,9 +718,9 @@ def update_trial_by_protocol_no(protocol_no: str, updated_json_file_name :str):
         system.run_matchengine()
         return True
     except requests.exceptions.HTTPError as err:
-        print(f"HTTP error occurred: {err}, {err.response.content}")
+        logger.error(f"HTTP error occurred: {err}, {err.response.content}")
     except Exception as err:
-        print(f"Other error occurred: {err}")
+        logger.error(f"Other error occurred: {err}")
     return False
 
 def close_trial(mm_id: str, existing_trial :dict, force_refresh_matchengine: bool = False):
@@ -761,11 +761,11 @@ def close_trial(mm_id: str, existing_trial :dict, force_refresh_matchengine: boo
             system.run_matchengine()
         return True
     except requests.exceptions.HTTPError as err:
-        print(f"HTTP error occurred: {err}, {err.response.content}")
+        logger.error(f"HTTP error occurred: {err}, {err.response.content}")
     except Exception as err:
-        print(f"Other error occurred: {err}")
+        logger.error(f"Other error occurred: {err}")
     return False
 
 if __name__ == "__main__":
-    logger.add('trial_processor.log', rotation = '1 MB', encoding="utf-8", format="{time} {level} - Line: {line} - {message}")
+    logger.add('trial_processor.log', rotation = '1 MB', encoding="utf-8", format="{time} {level} - Line: {line} - {message}", level="INFO")
     main()

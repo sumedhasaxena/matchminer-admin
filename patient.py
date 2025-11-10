@@ -18,10 +18,13 @@ def insert_all_patient_documents():
     clinical_data_path = os.path.join(config.PATIENT_DIR, config.PATIENT_CLINICAL_JSON_DIR)
     genomic_data_path = os.path.join(config.PATIENT_DIR, config.PATIENT_GENOMIC_JSON_DIR)
     
-    # Check if clinical folder exists
+    # Check if reviewed clinical folder exists
     if not os.path.exists(clinical_data_path):
-        logger.error(f"Clinical data folder does not exist: {clinical_data_path}")
-        return False
+        os.makedirs(clinical_data_path, exist_ok=True)
+
+    # Check if reviewed genomic folder exists
+    if not os.path.exists(genomic_data_path):
+        os.makedirs(genomic_data_path, exist_ok=True)
     
     # Create processed folders if they don't exist
     processed_clinical_folder = os.path.join(config.PATIENT_JSON_PROCESSED_DIR, config.PATIENT_CLINICAL_JSON_DIR)

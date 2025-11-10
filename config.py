@@ -21,15 +21,20 @@ TOKEN = os.getenv("TOKEN", "")
 if not TOKEN:
     raise ValueError("TOKEN environment variable is required. Please set it in your .env file.")
 
+# path for reviewed patient json files
 PATIENT_DATA_BASE_DIR = os.getenv("PATIENT_DATA_BASE_DIR")
-PATIENT_DIR = os.path.join(PATIENT_DATA_BASE_DIR, "patient_data")
+PATIENT_DIR = os.path.join(PATIENT_DATA_BASE_DIR, "patient_data", "reviewed")
 PATIENT_CLINICAL_JSON_DIR = "clinical"
 PATIENT_GENOMIC_JSON_DIR = "genomic"
 
+
 TRIAL_DATA_BASE_DIR = os.getenv("TRIAL_DATA_BASE_DIR")
 TRIAL_NCT_DATA_DIR = os.path.join(TRIAL_DATA_BASE_DIR, "cache", "nct")
+
+# path for reviewed trial json files
 TRIAL_DIR = os.path.join(TRIAL_DATA_BASE_DIR, "ctml", "json")
 TRIAL_STATUS_CSV_PATH = os.path.join(TRIAL_NCT_DATA_DIR, "trial_status.csv")
+
 TRIAL_ENV_CONFIG_PATH = "matchminer_trial_data_env_config.json"
 
 TRIAL_JSON_PROCESSED_DIR = "trial_data_processed"

@@ -21,9 +21,10 @@ TOKEN = os.getenv("TOKEN", "")
 if not TOKEN:
     raise ValueError("TOKEN environment variable is required. Please set it in your .env file.")
 
-# path for reviewed patient json files
+# path for reviewed patient json files ready for processing
+# once processed, matchminer_admin will move these file to processed folder in its own repo
 PATIENT_DATA_BASE_DIR = os.getenv("PATIENT_DATA_BASE_DIR")
-PATIENT_DIR = os.path.join(PATIENT_DATA_BASE_DIR, "patient_data", "reviewed")
+PATIENT_DIR = os.path.join(PATIENT_DATA_BASE_DIR, "patient_data", "pending")
 PATIENT_CLINICAL_JSON_DIR = "clinical"
 PATIENT_GENOMIC_JSON_DIR = "genomic"
 

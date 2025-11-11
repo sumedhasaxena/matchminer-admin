@@ -279,11 +279,7 @@ def process_trials():
     if not os.path.exists(config.TRIAL_STATUS_CSV_PATH):
         logger.error(f"Trial status csv not found: {config.TRIAL_STATUS_CSV_PATH}")
         return False
-    
-    processed_folder = config.TRIAL_JSON_PROCESSED_DIR
-    if not os.path.exists(processed_folder):
-        os.makedirs(processed_folder, exist_ok=True)
-    
+        
     try:
         with open("last_run_config.json", "r") as f:
             last_run_date_per_trial = json.load(f)

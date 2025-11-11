@@ -22,11 +22,12 @@ if not TOKEN:
     raise ValueError("TOKEN environment variable is required. Please set it in your .env file.")
 
 # path for reviewed patient json files ready for processing
-# once processed, matchminer_admin will move these file to processed folder in its own repo
+# once processed, matchminer_admin will move these file to 'PATIENT_JSON_PROCESSED_DIR' folder in its own repo
 PATIENT_DATA_BASE_DIR = os.getenv("PATIENT_DATA_BASE_DIR")
 PATIENT_DIR = os.path.join(PATIENT_DATA_BASE_DIR, "patient_data", "pending")
 PATIENT_CLINICAL_JSON_DIR = "clinical"
 PATIENT_GENOMIC_JSON_DIR = "genomic"
+PATIENT_JSON_PROCESSED_DIR = "patient_data_processed"
 
 
 TRIAL_DATA_BASE_DIR = os.getenv("TRIAL_DATA_BASE_DIR")
@@ -38,8 +39,7 @@ TRIAL_STATUS_CSV_PATH = os.path.join(TRIAL_NCT_DATA_DIR, "trial_status.csv")
 
 TRIAL_ENV_CONFIG_PATH = "matchminer_trial_data_env_config.json"
 
-TRIAL_JSON_PROCESSED_DIR = "trial_data_processed"
-PATIENT_JSON_PROCESSED_DIR = "patient_data_processed"
+
 
 TRIAL_ENDPOINT = "/api/trial"
 CLINICAL_ENDPOINT = "/api/clinical"

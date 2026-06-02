@@ -2,12 +2,16 @@ import os
 import json
 from datetime import datetime
 import requests
+import urllib3
 import urllib.parse
 from loguru import logger
 import config
 import argparse
+import nct_ids_to_process
 import system
 import csv
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def load_environment_variables():
     """
@@ -220,7 +224,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Insert/update trials based on trial_status.csv present in nct2ctml repo
-    upsert_parser = subparsers.add_parser("upsert", help="Insert or update trials from JSON files present in nct2ctml/cache/ctml directory and trial_status.csv")
+    upsert_parser = subparsers.add_parser("upsert", help="Insert or update trials from JSON files present in nct2ctml/ctml/json directory and trial_status.csv")
     
     # Get trial by protocol number
     get_parser = subparsers.add_parser("get", help="Get trial by protocol number")
@@ -275,7 +279,7 @@ def process_trials():
         logger.error(f"Trial folder does not exist: {config.TRIAL_DIR}")
         return False
     
-    # Check if trial_status.csv exists
+    # Check if trial_status.csv exists`[]`
     if not os.path.exists(config.TRIAL_STATUS_CSV_PATH):
         logger.error(f"Trial status csv not found: {config.TRIAL_STATUS_CSV_PATH}")
         return False
@@ -288,7 +292,8 @@ def process_trials():
 
     # read trial_status.csv and filter trials to process based on last_run
     trials_to_process = []
-    logger.info(f"Preparing a list of trials to process which were updated after last matcminer_admin's run")
+    logger.info(f"Preparing a list of trials to process which were updated after last matcminer_admin's run")    
+
     with open(config.TRIAL_STATUS_CSV_PATH, 'r', encoding='utf-8') as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
@@ -296,7 +301,9 @@ def process_trials():
                 trial_id = row['local_protocol_ids'].split('|')[0]
             else:
                 trial_id = row['nct_id']
-            if row['entry_last_updated_date'] > last_run_date_per_trial.get(trial_id, "1900-01-01"): # if the trial is not found in last_run_date_per_trial, use a very old date, so that its processed
+            if trial_id in nct_ids_to_process.nct_ids or \
+            row['entry_last_updated_date'] > last_run_date_per_trial.get(trial_id, "1900-01-01"): # if the trial is not found in last_run_date_per_trial, use a very old date, so that its processed
+                print(f"Trial {trial_id} marked for processing")
                 trials_to_process.append(row)
 
     trials_to_update = [] # stores filename, matchminer id, protocol_id, protocol_no of trials to update

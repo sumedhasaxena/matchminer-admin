@@ -109,13 +109,37 @@ Before running the application, you need to configure the Matchminer server conn
     ```  
     # Matchminer server configuration
     MATCHMINER_SERVER=https://your-matchminer-server.com/
-    TOKEN=your-authentication-token
+    TOKEN=your-authentication-token-to-authenticate-against-matchminer-api-seed-user
     
     # Data source paths    
     
     # PATIENT_DATA_BASE_DIR=/path/to/matchminer-patient-repo
     # TRIAL_DATA_BASE_DIR=/path/to/nct2ctml-repo
     ```
+
+**`TOKEN`:** Matchminer Admin authenticates to matchminer-api with HTTP Basic auth (`Authorization: Basic <TOKEN>`). The API decodes that header and looks up the username against the `token` field of a user document in MongoDB (`user` collection). That user is created by:
+
+- **Local:** `matchminer-api/setup.sh` (seeds the dummy user **John Doe**)
+- **Production:** `matchminer-setup/setup.sh --dev true` (seeds the Matchminer user; replace the placeholder `"token": "insert-token-here"` with the token you want to use)
+
+`TOKEN` is **not** the raw MongoDB `token` string. It is that token encoded as HTTP Basic with an empty password:
+
+```text
+TOKEN = base64(<mongodb user token> + ":")
+```
+
+Generate it with:
+
+```bash
+echo -n '<mongodb-user-token>:' | base64
+```
+
+**Local example:** `matchminer-api/setup.sh` sets `"token": "fb4d6830-d3aa-481b-bcd6-270d69790e11"`. Encoding `fb4d6830-d3aa-481b-bcd6-270d69790e11:` gives `ZmI0ZDY4MzAtZDNhYS00ODFiLWJjZDYtMjcwZDY5NzkwZTExOg==`, which is the value in `.env.dev`.
+
+**Data source paths:** Set these if you want matchminer-admin to pick up JSON files from the other repos:
+
+- `PATIENT_DATA_BASE_DIR`: required to pick up patient clinical and genomic JSON files from the [matchminer-patient](https://github.com/sumedhasaxena/matchminer-patient) repository. Point this at the repo root; files are read from `patient_data/pending`.
+- `TRIAL_DATA_BASE_DIR`: required to pick up trial JSON files from the [nct2ctml](https://github.com/sumedhasaxena/nct2ctml) repository. Point this at the repo root; files are read from `ctml/json`, and trial status from `cache/nct/trial_status.csv`.
 
 **Note:** If you're setting up for the first time, you may also need to configure the trial environment settings. See the **Configuration Files** section below for details on `matchminer_trial_data_env_config.json`.
 
@@ -347,6 +371,6 @@ The system automatically:
 
 These files contain environment-specific configuration:
 - `MATCHMINER_SERVER`: Matchminer server URL
-- `TOKEN`: Authentication token
-- `PATIENT_DATA_BASE_DIR`: Path to matchminer-patient repository
-- `TRIAL_DATA_BASE_DIR`: Path to nct2ctml repository
+- `TOKEN`: HTTP Basic credential for matchminer-api. Encode the MongoDB user's `token` field as `base64(<token> + ":")`. That user is seeded by `matchminer-api/setup.sh` (local) or `matchminer-setup/setup.sh --dev true` (production). See **Configuration Setup** above.
+- `PATIENT_DATA_BASE_DIR`: Path to the matchminer-patient repository root. Required if matchminer-admin should pick up patient JSON files from that repo.
+- `TRIAL_DATA_BASE_DIR`: Path to the nct2ctml repository root. Required if matchminer-admin should pick up trial JSON files from that repo.

@@ -197,7 +197,8 @@ python trial.py trial insert --trial_file /path/to/new_trial.json
 python trial.py get_max_pid_pno
 
 # Process a subset of NCT IDs after manual review.
-# Add the IDs to nct_ids_to_process.py, then run:
+# Add the IDs to nct_ids_to_process.py. For each ID, the code checks Matchminer
+# to decide whether the trial should be inserted, updated, or closed.
 python trial.py process_specific_nct_ids
 
 ```

@@ -196,6 +196,10 @@ python trial.py trial insert --trial_file /path/to/new_trial.json
 # Get max protocol_id and protocol_no from all trials
 python trial.py get_max_pid_pno
 
+# Process a subset of NCT IDs after manual review.
+# Add the IDs to nct_ids_to_process.py, then run:
+python trial.py process_specific_nct_ids
+
 ```
 
 #### **Patient Operations:**

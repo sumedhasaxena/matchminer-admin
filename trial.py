@@ -7,9 +7,9 @@ import urllib.parse
 from loguru import logger
 import config
 import argparse
-import nct_ids_to_process
 import system
 import csv
+from nct_ids_to_process import NCT_IDS_TO_PROCESS
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -241,11 +241,19 @@ def main():
 
     # Get max protocol ID and number
     get_max_parser = subparsers.add_parser("get_max_pid_pno", help="Get max protocol_id and protocol_no from all trials")
+
+    # Insert/update the NCT IDs listed in nct_ids_to_process.py
+    process_specific_nct_ids_parser = subparsers.add_parser(
+        "process_specific_nct_ids",
+        help="Insert or update trials listed in nct_ids_to_process.py. Uses each NCT ID's JSON file; does not read trial_status.csv.",
+    )
     
     args = parser.parse_args()
 
     if args.command == "upsert":
         process_trials()
+    elif args.command == "process_specific_nct_ids":
+        process_specific_nct_ids()
     elif args.command == "insert":
         result = insert_new_trial(args.trial_file)
         if result:
@@ -301,8 +309,7 @@ def process_trials():
                 trial_id = row['local_protocol_ids'].split('|')[0]
             else:
                 trial_id = row['nct_id']
-            if trial_id in nct_ids_to_process.nct_ids or \
-            row['entry_last_updated_date'] > last_run_date_per_trial.get(trial_id, "1900-01-01"): # if the trial is not found in last_run_date_per_trial, use a very old date, so that its processed
+            if row['entry_last_updated_date'] > last_run_date_per_trial.get(trial_id, "1900-01-01"): # if the trial is not found in last_run_date_per_trial, use a very old date, so that its processed
                 print(f"Trial {trial_id} marked for processing")
                 trials_to_process.append(row)
 
@@ -357,6 +364,79 @@ def process_trials():
     # Update LAST_RUN environment variable to current date
     save_last_run_environment(last_run_date_per_trial)
     
+    return any_success
+
+
+def process_specific_nct_ids():
+    """
+    Insert or update the NCT trials listed in nct_ids_to_process.py.
+
+    For each NCT ID, looks up {nct_id}.json in TRIAL_DIR and the matching trial
+    in Matchminer. Does not read trial_status.csv or filter by last-run date.
+    Close decisions use the status field on the trial JSON when present.
+    """
+    if not NCT_IDS_TO_PROCESS:
+        logger.warning("NCT_IDS_TO_PROCESS is empty. Add NCT IDs in nct_ids_to_process.py")
+        return False
+
+    if not os.path.exists(config.TRIAL_DIR):
+        logger.error(f"Trial folder does not exist: {config.TRIAL_DIR}")
+        return False
+
+    try:
+        with open("last_run_config.json", "r") as f:
+            last_run_date_per_trial = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        last_run_date_per_trial = {}
+
+    trials_to_insert = []
+    trials_to_update = []
+    trials_to_close = []
+
+    logger.info(f"Processing {len(NCT_IDS_TO_PROCESS)} NCT IDs from nct_ids_to_process.py")
+
+    for nct_id in NCT_IDS_TO_PROCESS:
+        file_name = f"{nct_id}.json"
+        full_path = os.path.join(config.TRIAL_DIR, file_name)
+        if not os.path.isfile(full_path):
+            logger.error(f"JSON file not found for {nct_id}: {full_path}")
+            continue
+
+        try:
+            with open(full_path, 'r', encoding='utf-8') as json_file:
+                trial_json = json.load(json_file)
+        except (json.JSONDecodeError, OSError) as e:
+            logger.error(f"Could not read {full_path}: {e}")
+            continue
+
+        trial_in_mm = get_trial_by_nct_id(nct_id)
+        if trial_in_mm:
+            if trial_json.get('status') == 'closed' and trial_in_mm.get('status') != 'closed':
+                trials_to_close.append((trial_in_mm['_id'], trial_in_mm['nct_id'], trial_in_mm))
+            else:
+                trials_to_update.append((
+                    file_name,
+                    trial_in_mm['_id'],
+                    trial_in_mm['protocol_id'],
+                    trial_in_mm['protocol_no'],
+                    trial_in_mm['_etag'],
+                ))
+        else:
+            trials_to_insert.append(file_name)
+
+    logger.info(f"Trials to insert: {trials_to_insert}")
+    logger.info(f"Trials to update: {[trial[0] for trial in trials_to_update]}")
+    logger.info(f"Trials to close: {[trial[1] for trial in trials_to_close]}")
+
+    any_success = False
+    any_success = _process_trials_to_insert(trials_to_insert, last_run_date_per_trial, any_success)
+    any_success = _process_trials_to_update(trials_to_update, last_run_date_per_trial, any_success)
+    any_success = _process_trials_to_close(trials_to_close, last_run_date_per_trial, any_success)
+
+    if any_success:
+        system.run_matchengine()
+
+    save_last_run_environment(last_run_date_per_trial)
     return any_success
 
 
